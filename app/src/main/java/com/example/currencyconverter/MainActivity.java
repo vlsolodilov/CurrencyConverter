@@ -7,9 +7,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.app.ProgressDialog;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
+
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -32,6 +37,11 @@ public class MainActivity extends AppCompatActivity {
     List<Currency> currencyList;
     ProgressDialog progressDialog;
     Button bRefresh;
+    EditText etRubValue, etResult;
+    TextInputLayout outlinedTextField2;
+
+    private int nominal;
+    private double value;
 
     private static final String BASE_URL = "https://www.cbr-xml-daily.ru/daily_json.js";
 
@@ -46,7 +56,18 @@ public class MainActivity extends AppCompatActivity {
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         recyclerView.setLayoutManager(layoutManager);
 
-        CurrencyAdapter adapter = new CurrencyAdapter(currencyList);
+        outlinedTextField2 = (TextInputLayout) findViewById(R.id.outlinedTextField2);
+        etRubValue = findViewById(R.id.etRubValue);
+        etResult = findViewById(R.id.etResult);
+        CurrencyAdapter adapter = new CurrencyAdapter(currencyList, new CurrencyAdapter.OnItemClickListener() {
+            @Override public void onItemClick(Currency currency) {
+                Log.d("Click", currency.getCharCode());
+                outlinedTextField2.setHint(currency.getCharCode());
+                nominal = currency.getNominal();
+                value = currency.getValue();
+                etResult.setText(convert(etRubValue.getText().toString()));
+            }
+        });
         recyclerView.setAdapter(adapter);
 
         bRefresh = (Button) findViewById(R.id.bRefresh);
@@ -56,6 +77,24 @@ public class MainActivity extends AppCompatActivity {
                 new JsonTask().execute();
             }
         });
+
+        etRubValue.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                etResult.setText(convert(s.toString()));
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+
+            }
+        });
+
     }
 
     private class JsonTask extends AsyncTask<Void, Void, JSONObject> {
@@ -133,5 +172,15 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
+    }
+
+    private String convert(String rubValue) {
+        double rub;
+        if (rubValue.length() != 0){
+            rub = Double.parseDouble(rubValue);
+        } else {
+            rub = 0;
+        }
+        return String.format("%.4f",rub / value * nominal);
     }
 }

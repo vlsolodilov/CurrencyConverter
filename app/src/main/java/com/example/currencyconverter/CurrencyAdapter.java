@@ -1,8 +1,10 @@
 package com.example.currencyconverter;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
@@ -10,10 +12,17 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 public class CurrencyAdapter extends RecyclerView.Adapter<CurrencyAdapter.ViewHolder>{
-    private List<Currency> currencyList;
 
-    public CurrencyAdapter(List<Currency> currencyList) {
+    public interface OnItemClickListener {
+        void onItemClick(Currency currency);
+    }
+
+    private List<Currency> currencyList;
+    private OnItemClickListener listener;
+
+    public CurrencyAdapter(List<Currency> currencyList, OnItemClickListener listener) {
         this.currencyList = currencyList;
+        this.listener = listener;
     }
 
     @Override
@@ -24,9 +33,7 @@ public class CurrencyAdapter extends RecyclerView.Adapter<CurrencyAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
-        Currency currency = currencyList.get(position);
-        holder.tvName.setText(currency.getName());
-        holder.tvCurrencyValue.setText(String.format("%d %s = %.4f RUB", currency.getNominal(), currency.getCharCode(), currency.getValue()));
+        holder.bind(currencyList.get(position), listener);
     }
 
     @Override
@@ -44,6 +51,15 @@ public class CurrencyAdapter extends RecyclerView.Adapter<CurrencyAdapter.ViewHo
             super(itemView);
             tvName = (TextView) itemView.findViewById(R.id.tvName);
             tvCurrencyValue = (TextView) itemView.findViewById(R.id.tvCurrencyValue);
+        }
+        public void bind(final Currency currency, final OnItemClickListener listener) {
+            tvName.setText(currency.getName());
+            tvCurrencyValue.setText(String.format("%d %s = %.4f RUB", currency.getNominal(), currency.getCharCode(), currency.getValue()));
+            itemView.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    listener.onItemClick(currency);
+                }
+            });
         }
     }
 }
