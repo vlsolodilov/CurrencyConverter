@@ -1,10 +1,12 @@
 package com.example.currencyconverter;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.Editable;
@@ -27,6 +29,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Iterator;
 import java.util.List;
 
@@ -42,9 +45,9 @@ public class MainActivity extends AppCompatActivity {
 
     private int nominal;
     private double value;
+    private DataStorage dataStorage;
 
     private static final String BASE_URL = "https://www.cbr-xml-daily.ru/daily_json.js";
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +72,20 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         recyclerView.setAdapter(adapter);
-
+        dataStorage = new DataStorage(getSharedPreferences("pref", Context.MODE_PRIVATE));
+        String date = dataStorage.loadDate();
+        String data = dataStorage.loadData();
+        if (data == null || !date.equals(DataStorage.FORMAT.format(Calendar.getInstance().getTime()))) {
+            Log.d("loadPref", "date");
+            new JsonTask().execute();
+        } else {
+            try {
+                Log.d("loadPref", data);
+                fillCurrencyList(new JSONObject(data));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
         bRefresh = (Button) findViewById(R.id.bRefresh);
         bRefresh.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -94,7 +110,6 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
-
     }
 
     private class JsonTask extends AsyncTask<Void, Void, JSONObject> {
@@ -123,6 +138,8 @@ public class MainActivity extends AppCompatActivity {
                     buffer.append(line + "\n");
                     Log.d("Response: ", "> " + line);
                 }
+                dataStorage.saveData(buffer.toString());
+                dataStorage.saveDate();
                 return new JSONObject(buffer.toString());
             } catch (MalformedURLException e) {
                 e.printStackTrace();
@@ -152,25 +169,7 @@ public class MainActivity extends AppCompatActivity {
                 progressDialog.dismiss();
             }
             currencyList.clear();
-            try {
-                JSONObject obj = result;
-                JSONObject obj2 = obj.getJSONObject("Valute");
-                JSONObject obj3;
-                Iterator<String> keys = obj2.keys();
-                Currency currency;
-                while (keys.hasNext()) {
-                    String keyValue = (String) keys.next();
-                    obj3 = obj2.getJSONObject(keyValue);
-                    currency = new Currency(obj3.getString("Name"),
-                            obj3.getInt("Nominal"),
-                            obj3.getString("CharCode"),
-                            obj3.getDouble("Value"));
-                    currencyList.add(currency);
-                }
-                recyclerView.getAdapter().notifyDataSetChanged();
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
+            fillCurrencyList(result);
         }
     }
 
@@ -181,6 +180,45 @@ public class MainActivity extends AppCompatActivity {
         } else {
             rub = 0;
         }
-        return String.format("%.4f",rub / value * nominal);
+        if (value != 0){
+            return String.format("%.4f",rub / value * nominal);
+        } else {
+            return null;
+        }
+    }
+
+    private void fillCurrencyList(JSONObject result) {
+        try {
+            JSONObject obj = result.getJSONObject("Valute");
+            JSONObject obj2;
+            Iterator<String> keys = obj.keys();
+            Currency currency;
+            while (keys.hasNext()) {
+                String keyValue = (String) keys.next();
+                obj2 = obj.getJSONObject(keyValue);
+                currency = new Currency(obj2.getString("Name"),
+                        obj2.getInt("Nominal"),
+                        obj2.getString("CharCode"),
+                        obj2.getDouble("Value"));
+                currencyList.add(currency);
+            }
+            recyclerView.getAdapter().notifyDataSetChanged();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putInt("nominal", nominal);
+        outState.putDouble("value", value);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        nominal = savedInstanceState.getInt("nominal");
+        value = savedInstanceState.getDouble("value");
     }
 }
